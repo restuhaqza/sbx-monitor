@@ -1,0 +1,18 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# SwiftPM / Xcode build artifacts
+.build/
+.swiftpm/
+dist/
+build/
+*.xcuserstate
+xcuserdata/
+DerivedData/
+
+# Editor
+.idea/
+.vscode/
+*.swp
