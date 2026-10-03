@@ -87,6 +87,7 @@ struct TerminalWindow: View {
 
     @State private var mode: TerminalMode = .shell
     @State private var token = 0
+    @State private var allowStart = false
     @State private var exitCode: Int32?
     @State private var processTitle: String?
 
@@ -98,18 +99,22 @@ struct TerminalWindow: View {
             header
             Divider()
             ZStack {
-                LocalTerminalView(
-                    executable: executable,
-                    arguments: arguments,
-                    environment: terminalEnvironment,
-                    onTitle: { processTitle = $0 },
-                    onExit: { exitCode = $0 }
-                )
-                .id(token)
-                .background(Color.black)
+                if needsStartGate {
+                    startGate
+                } else {
+                    LocalTerminalView(
+                        executable: executable,
+                        arguments: arguments,
+                        environment: terminalEnvironment,
+                        onTitle: { processTitle = $0 },
+                        onExit: { exitCode = $0 }
+                    )
+                    .id(token)
+                    .background(Color.black)
 
-                if let exitCode {
-                    exitOverlay(exitCode)
+                    if let exitCode {
+                        exitOverlay(exitCode)
+                    }
                 }
             }
         }
@@ -117,6 +122,39 @@ struct TerminalWindow: View {
         .navigationTitle("Terminal — \(displayName)")
         .task { store.start() }
         .onChange(of: mode) { _, _ in restart() }
+    }
+
+    /// A stopped sandbox must not be started just because this window exists:
+    /// `sbx --cloud exec`/`attach` start it as a side effect, so show an explicit
+    /// gate first. An unknown sandbox (list not loaded yet, e.g. a restored
+    /// window at launch) is gated too — never start on an assumption.
+    private var needsStartGate: Bool {
+        guard store.confirmBeforeStartingStopped, !allowStart else { return false }
+        guard let sandbox else { return true }
+        return !sandbox.isRunning
+    }
+
+    private var startGate: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "pause.circle")
+                .font(.system(size: 40))
+                .foregroundStyle(.orange)
+            Text("“\(displayName)” is stopped")
+                .font(.headline)
+            Text("Opening a terminal starts this sandbox.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+            HStack(spacing: 10) {
+                Button("Start sandbox") { allowStart = true }
+                    .keyboardShortcut(.defaultAction)
+                Button("Close") { dismissWindow(id: "terminal", value: sandboxID) }
+            }
+        }
+        .padding(28)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(.quaternary))
+        .shadow(radius: 24)
     }
 
     // MARK: - Header

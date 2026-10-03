@@ -13,7 +13,6 @@ enum Shell {
         guard let url = URL(string: string) else { return }
         NSWorkspace.shared.open(url)
     }
-
     /// Runs a command in a new Terminal window.
     static func openInTerminal(_ command: String) {
         let escaped = command
@@ -32,6 +31,21 @@ enum Shell {
         }
         // Fallback: at least make the command available.
         Clipboard.copy(command)
+    }
+}
+
+/// Modal confirmations for actions that would start a stopped sandbox.
+enum Confirm {
+    /// Returns true when the user agrees (or when confirmation is not needed).
+    @MainActor
+    static func startStoppedSandbox(named name: String, reason: String) -> Bool {
+        let alert = NSAlert()
+        alert.messageText = "Start “\(name)”?"
+        alert.informativeText = "\(reason) will start this stopped sandbox."
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "Start")
+        alert.addButton(withTitle: "Cancel")
+        return alert.runModal() == .alertFirstButtonReturn
     }
 }
 

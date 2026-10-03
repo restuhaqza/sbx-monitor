@@ -135,6 +135,10 @@ struct SandboxDetailView: View {
                     Label("Open Terminal", systemImage: "terminal")
                 }
                 Button {
+                    if store.willStartStopped(sandbox),
+                       !Confirm.startStoppedSandbox(named: sandbox.displayName, reason: "Opening an external terminal") {
+                        return
+                    }
                     Shell.openInTerminal("sbx --cloud attach \(sandbox.id)")
                 } label: {
                     Label("External Terminal", systemImage: "terminal.fill")

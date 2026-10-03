@@ -36,6 +36,14 @@ enum Fmt {
         return f.string(from: date)
     }
 
+    /// Compact date/time, e.g. "Oct 3, 09:12".
+    static func short(_ date: Date?) -> String {
+        guard let date else { return "—" }
+        let f = DateFormatter()
+        f.dateFormat = "MMM d, HH:mm"
+        return f.string(from: date)
+    }
+
     static func relative(_ date: Date?, now: Date = Date()) -> String {
         guard let date else { return "—" }
         let f = RelativeDateTimeFormatter()

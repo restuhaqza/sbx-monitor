@@ -43,6 +43,13 @@ struct SettingsView: View {
                 .onChange(of: store.refreshInterval) { _, _ in store.restartTimer() }
             }
 
+            Section("Safety") {
+                Toggle("Ask before starting a stopped sandbox", isOn: $store.confirmBeforeStartingStopped)
+                Text("Terminal and attach actions start a stopped sandbox as a side effect. When on, Sbx Monitor asks first and never starts one silently.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("Notifications") {
                 Toggle("Notify when a sandbox expires soon", isOn: $store.notificationsEnabled)
                 Picker("Warn before", selection: $store.ttlWarningMinutes) {

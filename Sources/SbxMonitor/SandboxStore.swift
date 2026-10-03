@@ -23,6 +23,12 @@ final class SandboxStore: ObservableObject {
     @Published var ttlWarningMinutes: Double {
         didSet { UserDefaults.standard.set(ttlWarningMinutes, forKey: "ttlWarningMinutes") }
     }
+    /// When true (default), any action that would *start* a stopped sandbox
+    /// (opening a terminal, attaching) asks first. `sbx exec`/`attach` start a
+    /// stopped sandbox as a side effect; that must never happen silently.
+    @Published var confirmBeforeStartingStopped: Bool {
+        didSet { UserDefaults.standard.set(confirmBeforeStartingStopped, forKey: "confirmBeforeStartingStopped") }
+    }
 
     private let client = SbxClient.shared
     private var timer: Timer?
@@ -30,6 +36,22 @@ final class SandboxStore: ObservableObject {
     private var notified: Set<String> = []
 
     var runningCount: Int { sandboxes.filter(\.isRunning).count }
+    var runningSandboxes: [Sandbox] { sandboxes.filter(\.isRunning) }
+    var stoppedCount: Int { sandboxes.count - runningCount }
+    var totalCPUs: Int { runningSandboxes.reduce(0) { $0 + ($1.cpus ?? 0) } }
+    var totalMemoryMiB: Int { runningSandboxes.reduce(0) { $0 + ($1.memoryMiB ?? 0) } }
+
+    /// The running sandbox with the least TTL left (expired included), if its expiry is known.
+    var mostUrgent: Sandbox? {
+        var best: (sandbox: Sandbox, remaining: TimeInterval)?
+        for sandbox in runningSandboxes {
+            guard let expires = sandbox.expiresDate else { continue }
+            let remaining = expires.timeIntervalSinceNow
+            if best == nil || remaining < best!.remaining { best = (sandbox, remaining) }
+        }
+        return best?.sandbox
+    }
+
     var selected: Sandbox? {
         guard let selectedID else { return nil }
         return sandboxes.first { $0.id == selectedID }
@@ -42,6 +64,13 @@ final class SandboxStore: ObservableObject {
         refreshInterval = defaults.object(forKey: "refreshInterval") as? Double ?? 15
         notificationsEnabled = defaults.object(forKey: "notificationsEnabled") as? Bool ?? true
         ttlWarningMinutes = defaults.object(forKey: "ttlWarningMinutes") as? Double ?? 5
+        confirmBeforeStartingStopped = defaults.object(forKey: "confirmBeforeStartingStopped") as? Bool ?? true
+    }
+
+    /// True when acting on `sandbox` would start a stopped one and the user wants
+    /// to be asked first.
+    func willStartStopped(_ sandbox: Sandbox) -> Bool {
+        confirmBeforeStartingStopped && !sandbox.isRunning
     }
 
     func start() {
@@ -71,8 +100,14 @@ final class SandboxStore: ObservableObject {
             let fetched = try await Task.detached(priority: .userInitiated) {
                 try SbxClient.shared.listCloudSandboxes()
             }.value
+            // Urgency-first: running before stopped, then least TTL remaining first.
             sandboxes = fetched.sorted { a, b in
                 if a.isRunning != b.isRunning { return a.isRunning }
+                if a.isRunning {
+                    let aTTL = a.expiresDate ?? .distantFuture
+                    let bTTL = b.expiresDate ?? .distantFuture
+                    if aTTL != bTTL { return aTTL < bTTL }
+                }
                 return a.displayName.localizedCaseInsensitiveCompare(b.displayName) == .orderedAscending
             }
             errorMessage = nil
