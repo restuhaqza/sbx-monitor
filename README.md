@@ -14,6 +14,10 @@ A native macOS app that monitors **Docker Sandboxes cloud sandboxes** (`sbx --cl
 It lives in your menu bar as a tray indicator and also opens a full desktop window
 with a built-in terminal.
 
+<p align="center">
+  <img src="assets/sbx-monitor-promo.gif" width="760" alt="Sbx Monitor — feature tour: menu bar, dashboard, TTL countdowns, exposed ports, and embedded terminal">
+</p>
+
 ## What it shows
 
 Data comes from `sbx --cloud ls --json` (polled on a timer):
